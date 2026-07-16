@@ -115,23 +115,38 @@ def _dict_to_dataclass(cls, data: dict, env_prefix: str = ""):
     if not isinstance(data, dict):
         return data
 
-    field_types = {f.name: f.type for f in cls.__dataclass_fields__.values()}
     kwargs = {}
-
-    for key, default_val in cls.__dataclass_fields__.items():
-        raw_val = data.get(key, default_val.default)
+    for key, field_info in cls.__dataclass_fields__.items():
+        # 取得預設值
+        if field_info.default is not field_info.default_factory:
+            default_val = field_info.default
+        elif field_info.default_factory is not field_info.default_factory:
+            default_val = field_info.default_factory()
+        else:
+            default_val = None
+        
+        # 從 data 取值
+        raw_val = data.get(key, default_val)
         env_key = f"{env_prefix}_{key}" if env_prefix else key
-
+        
         # 環境變數覆蓋
         raw_val = _env_override(env_key, raw_val)
-
-        # 遞迴處理巢狀 dataclass
-        if hasattr(raw_val, "__dataclass_fields__"):
+        
+        # 檢查是否為巢狀 dataclass
+        field_type = field_info.type
+        if hasattr(field_type, "__dataclass_fields__"):
+            # 巢狀 dataclass
             sub_data = data.get(key, {})
-            kwargs[key] = _dict_to_dataclass(type(raw_val), sub_data, env_key)
+            if isinstance(sub_data, dict):
+                kwargs[key] = _dict_to_dataclass(field_type, sub_data, env_key)
+            elif hasattr(sub_data, "__dataclass_fields__"):
+                # 已經是 dataclass 實例
+                kwargs[key] = sub_val
+            else:
+                kwargs[key] = _dict_to_dataclass(field_type, {}, env_key)
         else:
             kwargs[key] = raw_val
-
+    
     return cls(**kwargs)
 
 
