@@ -1,0 +1,73 @@
+# ─── 攝影機設定 ───
+camera:
+  device_id: 0                     # 攝影機 ID，Linux /dev/video0=0
+  backend: auto                    # auto / dshow / v4l2 / any
+  width: 1280
+  height: 720
+  fps: 30
+  auto_reconnect: true
+  reconnect_interval_sec: 5
+
+# ─── YOLO 偵測設定 ───
+detection:
+  model_path: "yolov8n.pt"        # 模型路徑，可為 ONNX 或 PyTorch
+  confidence_threshold: 0.5        # 信心值門檻
+  iou_threshold: 0.45              # NMS IoU 門檻
+  use_onnx: false                  # 是否使用 ONNX runtime（需先轉檔）
+  frame_skip: 2                    # 每 N 幀執行一次完整推理（1 = 每幀都跑）
+
+# ─── 臉部辨識設定 ───
+recognition:
+  enabled: true
+  known_faces_dir: "known_faces/"
+  encoding_cache: "known_faces/encodings.pickle"
+  recognition_interval_frames: 30  # 每 N 幀執行一次臉部比對
+  tolerance: 0.5                   # face_recognition 容忍度（越低越嚴格）
+
+# ─── 動作分析設定 ───
+motion:
+  method: "centroid"               # centroid / optical_flow
+  # centroid method
+  centroid_displacement_threshold: 30    # 像素，中心點位移超過此值算 moving
+  area_change_threshold: 0.15            # 面積變化比例
+  # optical flow method
+  flow_magnitude_threshold: 5.0          # 光流向量平均長度門檻
+  # 通用
+  motion_duration_sec: 120               # 持續運動超過此秒數才算 moving（防誤判）
+
+# ─── 久坐狀態機設定 ───
+state_machine:
+  stationary_alert_threshold_sec: 1500   # 25 分鐘 = 1500 秒
+  reset_on_moving_duration_sec: 120      # 連續運動 2 分鐘才重置 stationary timer
+  grace_period_sec: 10                   # 人物短暫離幀（10 秒內）不重置
+  alert_cooldown_sec: 300                # 警報後 5 分鐘內不重複觸發
+
+# ─── 提醒設定 ───
+alert:
+  methods:                       # 可選多種：可複選
+    - log
+    - tts
+    - notification
+  tts:
+    engine: "pyttsx3"            # pyttsx3 / espeak / windows
+    message: "請起身運動5分鐘"
+    language: "zh-TW"
+  notification:
+    title: "久坐提醒"
+    message: "你已經坐了 25 分鐘，請起身運動 5 分鐘！"
+
+# ─── 日誌設定 ───
+logging:
+  log_dir: "logs/"
+  log_format: "json"             # json / text
+  log_rotation_days: 30
+  save_snapshot_on_alert: true
+  save_snapshot_on_person_enter: false
+  snapshot_dir: "snapshots/"
+  snapshot_format: "jpg"         # jpg / png
+  snapshot_quality: 85
+
+# ─── 一般設定 ───
+general:
+  frame_buffer_size: 10          # writer thread queue 大小
+  verbose: false                 # 是否輸出 debug 資訊到 stdout
