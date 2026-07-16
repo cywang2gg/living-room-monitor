@@ -45,7 +45,7 @@ def test_env_override(monkeypatch):
     """測試環境變數覆蓋"""
     monkeypatch.setenv("LRM_CAMERA_DEVICE_ID", "2")
     monkeypatch.setenv("LRM_DETECTION_CONFIDENCE_THRESHOLD", "0.8")
-    monkeypatch.setenv("LRM_VERBOSE", "true")
+    monkeypatch.setenv("LRM_GENERAL_VERBOSE", "true")
 
     config = load_config()
     assert config.camera.device_id == 2

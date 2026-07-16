@@ -75,9 +75,15 @@ class MotionAnalyzer:
         matched_pairs = self._match_detections(self._prev_detections, detections)
 
         if not matched_pairs:
-            self._prev_detections = detections
-            self._prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if self.config.method == "optical_flow" else None
-            return MotionResult(score=0.0, state=MotionState.STATIONARY)
+            # 沒有 IoU 配對時，改用手邊最近的 bbox 配對
+            # 確保人物在畫面中時仍能計算動作量
+            if len(self._prev_detections) == 1 and len(detections) == 1:
+                matched_pairs = [(self._prev_detections[0], detections[0])]
+                logger.debug("使用 fallback 配對（無 IoU 重疊）")
+            else:
+                self._prev_detections = detections
+                self._prev_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if self.config.method == "optical_flow" else None
+                return MotionResult(score=0.0, state=MotionState.STATIONARY)
 
         # 計算各指標
         centroid_disp = self._calc_centroid_displacement(matched_pairs)
