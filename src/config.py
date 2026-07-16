@@ -1,5 +1,6 @@
 """設定載入器 — 讀取 config.yaml + 環境變數覆蓋"""
 import os
+import typing
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
@@ -54,13 +55,26 @@ class StateMachineConfig:
 
 
 @dataclass
+class TTSConfig:
+    """TTS 設定（巢狀結構）"""
+    engine: str = "pyttsx3"
+    message: str = "請起身運動5分鐘"
+    language: str = "zh-TW"
+
+
+@dataclass
+class NotificationConfig:
+    """桌面通知設定（巢狀結構）"""
+    title: str = "久坐提醒"
+    message: str = "你已經坐了 25 分鐘，請起身運動 5 分鐘！"
+
+
+@dataclass
 class AlertConfig:
+    """提醒設定（支援巢狀 tts / notification）"""
     methods: List[str] = field(default_factory=lambda: ["log", "tts", "notification"])
-    tts_engine: str = "pyttsx3"
-    tts_message: str = "請起身運動5分鐘"
-    tts_language: str = "zh-TW"
-    notification_title: str = "久坐提醒"
-    notification_message: str = "你已經坐了 25 分鐘，請起身運動 5 分鐘！"
+    tts: TTSConfig = field(default_factory=TTSConfig)
+    notification: NotificationConfig = field(default_factory=NotificationConfig)
 
 
 @dataclass
@@ -94,7 +108,7 @@ class Config:
     project_root: Path = field(default_factory=Path.cwd)
 
 
-def _env_override(key: str, default):
+def _env_override(key: str, default) -> typing.Any:
     """從環境變數覆蓋設定值，格式: LRM_<SECTION>_<KEY>"""
     env_key = f"LRM_{key.upper()}"
     val = os.environ.get(env_key)
@@ -110,8 +124,17 @@ def _env_override(key: str, default):
     return val
 
 
-def _dict_to_dataclass(cls, data: dict, env_prefix: str = ""):
-    """遞迴將 dict 轉換為 dataclass，支援環境變數覆蓋"""
+def _dict_to_dataclass(cls: type, data: dict, env_prefix: str = "") -> typing.Any:
+    """遞迴將 dict 轉換為 dataclass，支援環境變數覆蓋
+    
+    Args:
+        cls: 目標 dataclass 類型
+        data: 來源 dict
+        env_prefix: 環境變數前綴（如 "CAMERA", "ALERT_TTS"）
+    
+    Returns:
+        dataclass 實例
+    """
     if not isinstance(data, dict):
         return data
 
@@ -127,7 +150,8 @@ def _dict_to_dataclass(cls, data: dict, env_prefix: str = ""):
         
         # 從 data 取值
         raw_val = data.get(key, default_val)
-        env_key = f"{env_prefix}_{key}" if env_prefix else key
+        # 正確的環境變數 key：LRM_{PREFIX}_{KEY}（全大寫）
+        env_key = f"{env_prefix}_{key}".upper() if env_prefix else key.upper()
         
         # 環境變數覆蓋
         raw_val = _env_override(env_key, raw_val)
@@ -135,13 +159,13 @@ def _dict_to_dataclass(cls, data: dict, env_prefix: str = ""):
         # 檢查是否為巢狀 dataclass
         field_type = field_info.type
         if hasattr(field_type, "__dataclass_fields__"):
-            # 巢狀 dataclass
+            # 巢狀 dataclass — 遞迴處理，傳遞正確的 prefix
             sub_data = data.get(key, {})
             if isinstance(sub_data, dict):
                 kwargs[key] = _dict_to_dataclass(field_type, sub_data, env_key)
             elif hasattr(sub_data, "__dataclass_fields__"):
                 # 已經是 dataclass 實例
-                kwargs[key] = sub_val
+                kwargs[key] = sub_data
             else:
                 kwargs[key] = _dict_to_dataclass(field_type, {}, env_key)
         else:

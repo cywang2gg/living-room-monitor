@@ -41,13 +41,17 @@ class StateMachine:
     """久坐狀態機
 
     核心邏輯:
-    - person_present=False → grace_timer 累計，超過 grace_period_sec → 重置所有 timer → IDLE
+    - person_present 需連續 N 幀確認才切換狀態（防抖）
+    - person_present=False 連續確認後 → grace_timer 累計，超過 grace_period_sec → 重置所有 timer → IDLE
     - person_present=True, 新人 → 重置 timer → STATIONARY
     - motion_score > threshold → moving_timer 累計
       - moving_timer >= reset_on_moving_duration_sec → 重置 stationary_timer → MOVING
     - motion_score <= threshold → moving_timer 衰減, stationary_timer 累計 → STATIONARY
     - stationary_timer >= alert_threshold → ALERTED → fire alert
     """
+
+    # 連續幾幀確認人物狀態才切換
+    CONFIRM_FRAMES = 3
 
     def __init__(self, config: StateMachineConfig):
         self.config = config
@@ -60,6 +64,8 @@ class StateMachine:
         self.last_motion_score = 0.0
         self._alert_fired = False
         self._last_alert_time = 0.0
+        self._person_absent_frames = 0  # 連續無人幀計數器
+        self._person_present_frames = 0  # 連續有人幀計數器
 
         # 回呼
         self._on_alert: Optional[Callable[[float], None]] = None
@@ -71,8 +77,14 @@ class StateMachine:
         on_alert: Optional[Callable[[float], None]] = None,
         on_person_entered: Optional[Callable[[str], None]] = None,
         on_person_left: Optional[Callable[[], None]] = None,
-    ):
-        """設定事件回呼"""
+    ) -> None:
+        """設定事件回呼
+
+        Args:
+            on_alert: 警報觸發回呼
+            on_person_entered: 人物進入回呼
+            on_person_left: 人物離開回呼
+        """
         self._on_alert = on_alert
         self._on_person_entered = on_person_entered
         self._on_person_left = on_person_left
@@ -99,8 +111,20 @@ class StateMachine:
         """
         self.last_motion_score = motion_score
 
-        # ── 無人在畫面 ──
-        if not person_present:
+        # ── 連續幀確認機制（防單幀誤判） ──
+        if person_present:
+            self._person_present_frames = min(self._person_present_frames + 1, self.CONFIRM_FRAMES)
+            self._person_absent_frames = 0
+        else:
+            self._person_absent_frames = min(self._person_absent_frames + 1, self.CONFIRM_FRAMES)
+            self._person_present_frames = 0
+
+        # 穩定後的人物存在狀態
+        stable_present = self._person_present_frames >= self.CONFIRM_FRAMES
+        stable_absent = self._person_absent_frames >= self.CONFIRM_FRAMES
+
+        # ── 無人在畫面（已確認） ──
+        if stable_absent:
             if self.current_person_id is not None:
                 # 人物剛離開，開始 grace 計時
                 self.grace_timer += dt
@@ -120,7 +144,14 @@ class StateMachine:
                 self._transition(State.IDLE)
             return self.state
 
-        # ── 有人在畫面 ──
+        # 尚未確認無人，但幀級別 person_present=False
+        if not person_present:
+            # 還在確認中，保持上次狀態，grace timer 照跑
+            if self.current_person_id is not None:
+                self.grace_timer += dt
+            return self.state
+
+        # ── 有人在畫面（已確認） ──
         self.grace_timer = 0.0  # 人物在畫面中，重置 grace
 
         # 新人進入
@@ -186,13 +217,17 @@ class StateMachine:
 
         return self.state
 
-    def _transition(self, new_state: State):
-        """狀態轉換"""
+    def _transition(self, new_state: State) -> None:
+        """狀態轉換
+
+        Args:
+            new_state: 目標狀態
+        """
         if self.state != new_state:
             logger.debug("狀態轉換: %s → %s", self.state.value, new_state.value)
             self.state = new_state
 
-    def _reset_all_timers(self):
+    def _reset_all_timers(self) -> None:
         """重置所有計時器"""
         self.stationary_timer = 0.0
         self.moving_timer = 0.0

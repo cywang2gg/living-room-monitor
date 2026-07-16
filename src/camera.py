@@ -19,15 +19,19 @@ class Camera:
     - 輸出: (BGR frame, timestamp)
     """
 
-    def __init__(self, config: CameraConfig):
+    def __init__(self, config: CameraConfig) -> None:
         self.config = config
         self._cap: Optional[cv2.VideoCapture] = None
         self._backend = self._resolve_backend()
-        self._last_frame_time = 0.0
+        self._last_frame_time: float = 0.0
 
     def _resolve_backend(self) -> int:
-        """根據設定與平台決定攝影機後端"""
-        backend_map = {
+        """根據設定與平台決定攝影機後端
+
+        Returns:
+            OpenCV 後端常數
+        """
+        backend_map: dict = {
             "dshow": cv2.CAP_DSHOW,
             "v4l2": cv2.CAP_V4L2,
             "any": cv2.CAP_ANY,
@@ -109,11 +113,11 @@ class Camera:
         time.sleep(self.config.reconnect_interval_sec)
         return self.open()
 
-    def release(self):
+    def release(self) -> None:
         """釋放攝影機資源"""
         if self._cap is not None:
             self._cap.release()
             self._cap = None
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.release()

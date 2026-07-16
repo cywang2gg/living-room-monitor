@@ -36,13 +36,14 @@ class Detector:
 
     - 只保留 person class (class_id=0)
     - 過濾低信心偵測
-    - 支援 frame skip
+    - 支援 frame skip（frame_skip 時回傳上一次快取結果）
     """
 
-    def __init__(self, config: DetectionConfig):
+    def __init__(self, config: DetectionConfig) -> None:
         self.config = config
         self._model = None
-        self._frame_count = 0
+        self._frame_count: int = 0
+        self._last_detections: List[Detection] = []  # frame skip 快取
 
     def load_model(self) -> bool:
         """載入 YOLOv8 模型
@@ -86,7 +87,7 @@ class Detector:
 
         # Frame skip: 只在指定間隔執行完整推理
         if self.config.frame_skip > 1 and self._frame_count % self.config.frame_skip != 0:
-            return []
+            return self._last_detections  # 回傳上一次的偵測結果（快取）
 
         try:
             results = self._model(
@@ -125,6 +126,7 @@ class Detector:
                         bbox_area=area,
                     ))
 
+            self._last_detections = detections  # 更新快取
             return detections
 
         except Exception as e:

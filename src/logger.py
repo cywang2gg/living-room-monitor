@@ -30,13 +30,13 @@ class Logger:
         self.config = config
         self._log_dir = Path(config.log_dir)
         self._snapshot_dir = Path(config.snapshot_dir)
-        self._queue: queue.Queue = queue.Queue(maxsize=config.snapshot_quality)
+        self._queue: queue.Queue = queue.Queue(maxsize=64)  # 背景佇列上限 64 筆，非 JPEG quality
         self._writer_thread: Optional[threading.Thread] = None
         self._running = False
         self._current_log_file: Optional[Path] = None
         self._last_log_date: Optional[str] = None
 
-    def start(self):
+    def start(self) -> None:
         """啟動背景寫入執行緒"""
         ensure_dir(self._log_dir)
         ensure_dir(self._snapshot_dir)
@@ -47,7 +47,7 @@ class Logger:
         self._writer_thread.start()
         logger.info("日誌寫入執行緒已啟動")
 
-    def stop(self):
+    def stop(self) -> None:
         """停止背景寫入執行緒"""
         self._running = False
         # 傳送哨兵值
@@ -56,7 +56,7 @@ class Logger:
             self._writer_thread.join(timeout=5.0)
         logger.info("日誌寫入執行緒已停止")
 
-    def log(self, snapshot: StateSnapshot, timestamp: Optional[str] = None):
+    def log(self, snapshot: StateSnapshot, timestamp: Optional[str] = None) -> None:
         """記錄狀態日誌
 
         Args:
@@ -84,7 +84,7 @@ class Logger:
         frame: np.ndarray,
         snapshot: StateSnapshot,
         force: bool = False,
-    ):
+    ) -> None:
         """條件儲存快照
 
         Args:
@@ -122,7 +122,7 @@ class Logger:
             "format": self.config.snapshot_format,
         }))
 
-    def _writer_loop(self):
+    def _writer_loop(self) -> None:
         """背景寫入執行緒主迴圈"""
         while self._running:
             try:
@@ -155,7 +155,7 @@ class Logger:
             except Exception:
                 break
 
-    def _write_log(self, entry: dict):
+    def _write_log(self, entry: dict) -> None:
         """寫入日誌"""
         # 檢查是否需要切換日誌檔案（按日期）
         today = datetime.now().strftime("%Y%m%d")
@@ -181,7 +181,7 @@ class Logger:
         except Exception as e:
             logger.error("日誌寫入失敗: %s", e)
 
-    def _write_snapshot(self, data: dict):
+    def _write_snapshot(self, data: dict) -> None:
         """寫入快照"""
         frame = data["frame"]
         path = Path(data["path"])
@@ -201,7 +201,7 @@ class Logger:
         except Exception as e:
             logger.error("快照儲存失敗: %s", e)
 
-    def _cleanup_old_logs(self):
+    def _cleanup_old_logs(self) -> None:
         """清理過期日誌"""
         if self.config.log_rotation_days <= 0:
             return

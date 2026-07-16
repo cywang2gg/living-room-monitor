@@ -25,13 +25,13 @@ class Alert:
         self._init_tts()
         self._init_notifier()
 
-    def _init_tts(self):
+    def _init_tts(self) -> None:
         """初始化 TTS 引擎"""
         if "tts" not in self.config.methods:
             return
 
         try:
-            if self.config.tts_engine == "pyttsx3":
+            if self.config.tts.engine == "pyttsx3":
                 import pyttsx3
                 self._tts_engine = pyttsx3.init()
                 # 設定中文語音（如果可用）
@@ -45,7 +45,7 @@ class Alert:
             logger.warning("TTS 初始化失敗: %s，將使用替代方案", e)
             self._tts_engine = None
 
-    def _init_notifier(self):
+    def _init_notifier(self) -> None:
         """初始化桌面通知"""
         if "notification" not in self.config.methods:
             return
@@ -66,7 +66,7 @@ class Alert:
             logger.warning("桌面通知初始化失敗: %s", e)
             self._notifier = None
 
-    def trigger(self, message: str):
+    def trigger(self, message: str) -> None:
         """觸發提醒
 
         Args:
@@ -85,13 +85,13 @@ class Alert:
             except Exception as e:
                 logger.error("提醒觸發失敗 (%s): %s", method, e)
 
-    def _alert_log(self, message: str):
+    def _alert_log(self, message: str) -> None:
         """日誌提醒"""
         logger.warning("🔔 久坐提醒: %s", message)
 
-    def _alert_tts(self, message: str):
+    def _alert_tts(self, message: str) -> None:
         """語音提醒"""
-        tts_message = self.config.tts_message or message
+        tts_message = self.config.tts.message or message
 
         if self._tts_engine is not None:
             try:
@@ -105,7 +105,7 @@ class Alert:
         if sys.platform.startswith("linux"):
             try:
                 subprocess.run(
-                    ["espeak", "-v", self.config.tts_language, tts_message],
+                    ["espeak", "-v", self.config.tts.language, tts_message],
                     check=False,
                     capture_output=True,
                 )
@@ -115,10 +115,10 @@ class Alert:
 
         logger.warning("無可用的 TTS 引擎")
 
-    def _alert_notification(self, message: str):
+    def _alert_notification(self, message: str) -> None:
         """桌面通知"""
-        title = self.config.notification_title
-        notif_message = self.config.notification_message or message
+        title = self.config.notification.title
+        notif_message = self.config.notification.message or message
 
         if sys.platform == "win32" and self._notifier is not None:
             try:
@@ -142,7 +142,7 @@ class Alert:
 
         logger.warning("無可用的桌面通知方式")
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """清理資源"""
         if self._tts_engine is not None:
             try:

@@ -37,14 +37,14 @@ class MotionAnalyzer:
     方法 B（精確）: OpenCV 稀疏光流
     """
 
-    def __init__(self, config: MotionConfig):
+    def __init__(self, config: MotionConfig) -> None:
         self.config = config
         self._prev_detections: List[Detection] = []
         self._prev_gray: Optional[np.ndarray] = None
         # 權重
-        self._w1 = 1.0  # centroid displacement
-        self._w2 = 0.5  # area change
-        self._w3 = 0.0 if config.method == "centroid" else 1.0  # flow magnitude
+        self._w1: float = 1.0  # centroid displacement
+        self._w2: float = 0.5  # area change
+        self._w3: float = 0.0 if config.method == "centroid" else 1.0  # flow magnitude
 
     def analyze(
         self,

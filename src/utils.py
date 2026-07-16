@@ -5,12 +5,23 @@ from typing import Tuple
 
 
 def current_timestamp() -> str:
-    """回傳 ISO 8601 格式時間戳（含時區）"""
+    """回傳 ISO 8601 格式時間戳（含時區）
+
+    Returns:
+        ISO 8601 字串
+    """
     return datetime.now(timezone.utc).isoformat()
 
 
 def ensure_dir(path: Path) -> Path:
-    """確保目錄存在，不存在則建立"""
+    """確保目錄存在，不存在則建立
+
+    Args:
+        path: 目錄路徑
+
+    Returns:
+        建立的 Path 物件
+    """
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -43,5 +54,13 @@ def iou(box1: Tuple[int, int, int, int], box2: Tuple[int, int, int, int]) -> flo
 
 
 def euclidean_distance(p1: Tuple[float, float], p2: Tuple[float, float]) -> float:
-    """計算兩點的歐氏距離"""
+    """計算兩點的歐氏距離
+
+    Args:
+        p1: 第一個點 (x, y)
+        p2: 第二個點 (x, y)
+
+    Returns:
+        歐氏距離
+    """
     return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5

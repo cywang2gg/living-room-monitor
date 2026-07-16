@@ -2,6 +2,7 @@
 import logging
 import pickle
 from pathlib import Path
+from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
 
 import cv2
@@ -26,7 +27,8 @@ class Recognizer:
         self._known_encodings: List[np.ndarray] = []
         self._known_names: List[str] = []
         self._frame_count = 0
-        self._cache: Dict[int, Tuple[str, float]] = {}  # track_id → (name, confidence)
+        self._cache: OrderedDict[int, Tuple[str, float]] = OrderedDict()  # track_id → (name, confidence)
+        self._MAX_CACHE_SIZE = 100
         self._face_recognition = None
 
     def load_known_faces(self) -> bool:
@@ -178,7 +180,12 @@ class Recognizer:
                 except Exception as e:
                     logger.debug("臉部辨識失敗: %s", e)
 
-            # 更新快取
+            # 更新快取（LRU 上限 100）
+            if track_id in self._cache:
+                self._cache.move_to_end(track_id)  # 移到最近使用
+            else:
+                if len(self._cache) >= self._MAX_CACHE_SIZE:
+                    self._cache.popitem(last=False)  # 移除最早的一個
             self._cache[track_id] = (person_id, confidence)
             results.append((person_id, confidence))
 
