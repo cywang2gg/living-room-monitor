@@ -30,7 +30,7 @@ class Logger:
         self.config = config
         self._log_dir = Path(config.log_dir)
         self._snapshot_dir = Path(config.snapshot_dir)
-        self._queue: queue.Queue = queue.Queue(maxsize=64)  # 背景佇列上限 64 筆，非 JPEG quality
+        self._queue: queue.Queue = queue.Queue(maxsize=100)  # 背景佇列上限
         self._writer_thread: Optional[threading.Thread] = None
         self._running = False
         self._current_log_file: Optional[Path] = None
