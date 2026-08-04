@@ -125,9 +125,10 @@ class LivingRoomMonitor:
                     current_time=current_time,
                 )
 
-                # 7. 檢查警報
-                if self.state_machine.should_alert():
+                # 7. 檢查警報（防重複觸發）
+                if self.state_machine.should_alert() and not self.state_machine._alert_fired:
                     self.alert_module.trigger(self.state_machine.alert_message())
+                    self.state_machine._alert_fired = True
 
                 # 8. 日誌記錄
                 snapshot = self.state_machine.get_snapshot()
