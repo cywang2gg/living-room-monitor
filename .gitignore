@@ -29,10 +29,15 @@ desktop.ini
 known_faces/*.pickle
 known_faces/*.jpg
 known_faces/*.png
+snapshots/**/*.jpg
+snapshots/**/*.png
 snapshots/*.jpg
 snapshots/*.png
+snapshots/**/*.jpeg
 logs/*.log
 logs/*.jsonl
+logs/**/*.log
+logs/**/*.jsonl
 
 # YOLO model weights (downloaded at runtime)
 *.pt
