@@ -71,3 +71,5 @@ logging:
 general:
   frame_buffer_size: 10          # writer thread queue 大小
   verbose: false                 # 是否輸出 debug 資訊到 stdout
+  show_preview: true             # 即時預覽視窗（Q 關閉）
+  preview_width: 960             # 預覽視窗寬度，等比縮放

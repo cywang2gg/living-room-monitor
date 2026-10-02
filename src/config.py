@@ -93,6 +93,8 @@ class LoggingConfig:
 class GeneralConfig:
     frame_buffer_size: int = 10
     verbose: bool = False
+    show_preview: bool = True       # 是否顯示即時預覽視窗
+    preview_width: int = 960        # 預覽視窗寬度（等比縮放）
 
 
 @dataclass

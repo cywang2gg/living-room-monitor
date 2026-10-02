@@ -139,6 +139,18 @@ class LivingRoomMonitor:
                 self._prev_detections = detections
                 self._frame_count += 1
 
+                # 10. 即時預覽視窗
+                if self.config.general.show_preview:
+                    try:
+                        self._render_preview(frame, detections, person_ids, motion_score)
+                    except Exception as e:
+                        logger.warning("預覽視窗渲染失敗（已停用）: %s", e)
+                        self.config.general.show_preview = False
+                        try:
+                            cv2.destroyAllWindows()
+                        except Exception:
+                            pass
+
                 # Debug 輸出
                 if self.config.general.verbose and self._frame_count % 30 == 0:
                     logger.info(
@@ -196,6 +208,70 @@ class LivingRoomMonitor:
 
         return track_ids
 
+    def _render_preview(
+        self,
+        frame: np.ndarray,
+        detections: List[Detection],
+        person_ids: List[Tuple[str, float]],
+        motion_score: float,
+    ) -> None:
+        """即時預覽視窗：bbox + 狀態疊字，按 Q 關閉"""
+        overlay = frame.copy()
+        moving = self.state_machine.state == State.MOVING
+        alerted = self.state_machine.state == State.ALERTED
+        # bbox 顏色：警報紅 / 運動藍 / 靜止綠 / 無人灰
+        if alerted:
+            box_color = (0, 0, 255)
+        elif moving:
+            box_color = (255, 0, 0)
+        else:
+            box_color = (0, 255, 0)
+
+        for i, det in enumerate(detections):
+            tid = self._track_ids[i] if i < len(self._track_ids) else -1
+            pid = person_ids[i][0] if i < len(person_ids) else "unknown"
+            conf = person_ids[i][1] if i < len(person_ids) else 0.0
+            cv2.rectangle(overlay, (det.x1, det.y1), (det.x2, det.y2), box_color, 2)
+            label = f"{pid} #{tid} {det.confidence:.2f}"
+            if conf > 0:
+                label += f" id:{conf:.2f}"
+            cv2.putText(overlay, label, (det.x1, max(0, det.y1 - 8)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, box_color, 2, cv2.LINE_AA)
+
+        # 狀態列（英文避免 putText 中文亂碼）
+        sm = self.state_machine
+        sit_min = int(sm.stationary_timer // 60)
+        sit_sec = int(sm.stationary_timer % 60)
+        lines = [
+            f"STATE: {sm.state.value.upper()}",
+            f"PERSON: {sm.current_person_id or 'none'}",
+            f"SIT: {sit_min:02d}:{sit_sec:02d} / 25:00",
+            f"MOTION: {motion_score:.1f}  move_t: {sm.moving_timer:.0f}s",
+            f"FRAME: {self._frame_count}",
+        ]
+        if alerted:
+            lines.insert(0, "!!! STAND UP AND MOVE 5 MIN !!!")
+        y = 28
+        for line in lines:
+            hl = line.startswith("!!!")
+            color = (0, 0, 255) if hl else (255, 255, 255)
+            cv2.putText(overlay, line, (12, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 4, cv2.LINE_AA)
+            cv2.putText(overlay, line, (12, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2, cv2.LINE_AA)
+            y += 30
+
+        # 等比縮放
+        pw = max(320, self.config.general.preview_width)
+        h, w = overlay.shape[:2]
+        scale = pw / w
+        preview = cv2.resize(overlay, (pw, int(h * scale)))
+        cv2.imshow("Living Room Monitor (Q to quit)", preview)
+        key = cv2.waitKey(1) & 0xFF
+        if key in (ord("q"), ord("Q")):
+            logger.info("預覽視窗按 Q，正在關閉...")
+            self._running = False
+
     def _on_alert(self, stationary_seconds: float):
         """警報回呼"""
         logger.warning("久坐警報觸發！已靜止 %.1f 分鐘", stationary_seconds / 60.0)
@@ -211,6 +287,10 @@ class LivingRoomMonitor:
     def shutdown(self):
         """優雅關閉"""
         self._running = False
+        try:
+            cv2.destroyAllWindows()
+        except Exception:
+            pass
         self.camera.release()
         self.alert_module.cleanup()
         self.logger_module.stop()
